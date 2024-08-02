@@ -150,9 +150,9 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         using (StreamWriter writer = new StreamWriter(depthMapFilePath))
         {
-            for (int i = 0; i < depth_height; i++)
+            for (int i = 0; i < depth_width; i++)
             {
-                for (int j = 0; j < depth_width; j++)
+                for (int j = 0; j < depth_height; j++)
                 {
                     writer.Write(depthMap[i, j].ToString("F2") + " ");
                 }
@@ -166,9 +166,9 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         using (StreamWriter writer = new StreamWriter(depthMapCsvPath))
         {
-            for (int i = 0; i < depth_height; i++)
+            for (int i = 0; i < depth_width; i++)
             {
-                for (int j = 0; j < depth_width; j++)
+                for (int j = 0; j < depth_height; j++)
                 {
                     writer.Write(depthMap[i, j].ToString("F2"));
                     if (i < depth_width - 1)
