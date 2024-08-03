@@ -33,6 +33,7 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         videoFrame = LoadTextureFromFile(filePath);
         pixels = videoFrame.GetPixels();
+        Debug.Log("Pixels length: " + pixels.Length);
         depthMap = new float[depth_width, depth_height];
         SaveDepthMap();
         SaveDepthMapToFile();
@@ -49,10 +50,11 @@ public class TestPointCloudEdge : MonoBehaviour
         }
 
         byte[] fileData = File.ReadAllBytes(filePath);
-        Texture2D tex = new Texture2D(2, 2);
+        Texture2D tex = new Texture2D(megaframe_width, megaframe_width);
         if (tex.LoadImage(fileData))
         {
             Debug.Log("Texture loaded successfully from " + filePath);
+            Debug.Log($"Texture2D size: {tex.width}x{tex.height}");
             return tex;
         }
         else
@@ -74,25 +76,27 @@ public class TestPointCloudEdge : MonoBehaviour
 
     private void SaveDepthMap()
     {
-        int depth_x_start = 0;
-        int depth_y_start = 720;
-
-        for (int i = 0; i < depth_width; i++)
-            for (int j = 0; j < depth_height / 2; j++)
+        // Texture2D coordinate system: (0, 0) is at the bottom-left corner
+        // y height
+        // ^
+        // |
+        // |
+        // +------> x width
+        for (int y = 0; y < depth_height / 2; y++)
+            for (int x = 0; x < depth_width; x++)
             {
-                float lowbit = GetImagePixel(depth_x_start + i, depth_y_start + j).b;
-                float highbit = GetImagePixel(depth_x_start + i, depth_y_start + depth_height / 2 + j).b;
-                depthMap[i, j] = lowbit * 255 + highbit * 255 * 256;
-            }
+                // upper half
+                float lowbit = GetImagePixel(x, depth_height / 2 + y).b;
+                float highbit = GetImagePixel(x, y).b;
+                float depth_value = lowbit * 255 + highbit * 255 * 256;
+                depthMap[x, y + depth_height / 2] = depth_value;
 
-        for (int i = 0; i < depth_width; i++)
-            for (int j = 0; j < depth_height / 2; j++)
-            {
-                float lowbit = GetImagePixel(depth_x_start + depth_width + i, depth_y_start + j).b;
-                float highbit = GetImagePixel(depth_x_start + depth_width + i, depth_y_start + depth_height / 2 + j).b;
-                depthMap[i, j] = lowbit * 255 + highbit * 255 * 256;
+                // lower half
+                lowbit = GetImagePixel(x + depth_width, depth_height / 2 + y).b;
+                highbit = GetImagePixel(x + depth_width, y).b;
+                depth_value = lowbit * 255 + highbit * 255 * 256;
+                depthMap[x, y] = depth_value;
             }
-
     }
 
     private Color GetImagePixel(int x, int y)
@@ -150,11 +154,11 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         using (StreamWriter writer = new StreamWriter(depthMapFilePath))
         {
-            for (int i = 0; i < depth_width; i++)
+            for (int y = 0; y < depth_height; y++)
             {
-                for (int j = 0; j < depth_height; j++)
+                for (int x = 0; x < depth_width; x++)
                 {
-                    writer.Write(depthMap[i, j].ToString("F2") + " ");
+                    writer.Write(depthMap[x, y].ToString("F2") + " ");
                 }
                 writer.WriteLine();
             }
@@ -166,12 +170,12 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         using (StreamWriter writer = new StreamWriter(depthMapCsvPath))
         {
-            for (int i = 0; i < depth_width; i++)
+            for (int y = 0; y < depth_height; y++)
             {
-                for (int j = 0; j < depth_height; j++)
+                for (int x = 0; x < depth_width; x++)
                 {
-                    writer.Write(depthMap[i, j].ToString("F2"));
-                    if (i < depth_width - 1)
+                    writer.Write(depthMap[x, y].ToString("F2"));
+                    if (x < depth_width - 1)
                         writer.Write(","); // Add comma between values
                 }
                 writer.WriteLine(); // New line after each row
@@ -183,13 +187,13 @@ public class TestPointCloudEdge : MonoBehaviour
     private void CreateHeatmap()
     {
         Texture2D heatmapTexture = new Texture2D(depth_width, depth_height);
-        for (int i = 0; i < depth_width; i++)
+        for (int y = 0; y < depth_height; y++)
         {
-            for (int j = 0; j < depth_height; j++)
+            for (int x = 0; x < depth_width; x++)
             {
-                float depthValue = depthMap[i, j];
+                float depthValue = depthMap[x, y];
                 Color color = GetHeatmapColor(depthValue);
-                heatmapTexture.SetPixel(i, j, color);
+                heatmapTexture.SetPixel(x, y, color);
             }
         }
         heatmapTexture.Apply();
@@ -204,7 +208,7 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         // This function maps a depth value to a color
         // Adjust the mapping logic as needed
-        return Color.Lerp(Color.blue, Color.red, value / 65535f); // Assuming 16-bit depth values
+        return Color.Lerp(Color.blue, Color.red, value / 4096); // Assuming 16-bit depth values
     }
 
 
