@@ -14,9 +14,11 @@ public class TestPointCloudEdge : MonoBehaviour
     private int pointCount;
 
     private Texture2D videoFrame;
-    private string filePath = "Assets/frame_testing.png";
+    private string filePath = "Assets/frame_24.png";
     private Color[] pixels;
     private float[,] depthMap;
+    private float[,] lowbitMap;
+    private float[,] highbitMap;
     private bool[,] edgeMap; // To mark edge pixels
 
     float cx_depth = 322.973f;
@@ -25,6 +27,10 @@ public class TestPointCloudEdge : MonoBehaviour
     float fy_depth = 504.436f;
 
     public Material heatmapMaterial;
+    private string lowbitMapFilePath = "Assets/lowbitMap.txt"; // File path to save the depth map
+    private string lowbitMapCsvPath = "Assets/lowbitMap.csv"; // File path to save the depth map as CSV
+    private string highbitMapFilePath = "Assets/highbitMap.txt"; // File path to save the depth map
+    private string highbitMapCsvPath = "Assets/highbitMap.csv"; // File path to save the depth map as CSV
     private string depthMapFilePath = "Assets/depthMap.txt"; // File path to save the depth map
     private string depthMapCsvPath = "Assets/depthMap.csv"; // File path to save the depth map as CSV
 
@@ -34,6 +40,8 @@ public class TestPointCloudEdge : MonoBehaviour
         videoFrame = LoadTextureFromFile(filePath);
         pixels = videoFrame.GetPixels();
         Debug.Log("Pixels length: " + pixels.Length);
+        lowbitMap = new float[depth_width, depth_height];
+        highbitMap = new float[depth_width, depth_height];
         depthMap = new float[depth_width, depth_height];
         SaveDepthMap();
         SaveDepthMapToFile();
@@ -89,12 +97,16 @@ public class TestPointCloudEdge : MonoBehaviour
                 float lowbit = GetImagePixel(x, depth_height / 2 + y).b;
                 float highbit = GetImagePixel(x, y).b;
                 float depth_value = lowbit * 255 + highbit * 255 * 256;
+                lowbitMap[x, y + depth_height / 2] = lowbit * 255;
+                highbitMap[x, y + depth_height / 2] = highbit * 255;
                 depthMap[x, y + depth_height / 2] = depth_value;
 
                 // lower half
                 lowbit = GetImagePixel(x + depth_width, depth_height / 2 + y).b;
                 highbit = GetImagePixel(x + depth_width, y).b;
                 depth_value = lowbit * 255 + highbit * 255 * 256;
+                lowbitMap[x, y] = lowbit * 255;
+                highbitMap[x, y] = highbit * 255;
                 depthMap[x, y] = depth_value;
             }
     }
@@ -152,13 +164,39 @@ public class TestPointCloudEdge : MonoBehaviour
 
     private void SaveDepthMapToFile()
     {
+        using (StreamWriter writer = new StreamWriter(lowbitMapFilePath))
+        {
+            for (int y = 0; y < depth_height; y++)
+            {
+                for (int x = 0; x < depth_width; x++)
+                {
+                    writer.Write(lowbitMap[x, y].ToString() + " ");
+                }
+                writer.WriteLine();
+            }
+        }
+        Debug.Log("Depth map saved to " + lowbitMapFilePath);
+
+        using (StreamWriter writer = new StreamWriter(highbitMapFilePath))
+        {
+            for (int y = 0; y < depth_height; y++)
+            {
+                for (int x = 0; x < depth_width; x++)
+                {
+                    writer.Write(lowbitMap[x, y].ToString() + " ");
+                }
+                writer.WriteLine();
+            }
+        }
+        Debug.Log("Depth map saved to " + highbitMapFilePath);
+
         using (StreamWriter writer = new StreamWriter(depthMapFilePath))
         {
             for (int y = 0; y < depth_height; y++)
             {
                 for (int x = 0; x < depth_width; x++)
                 {
-                    writer.Write(depthMap[x, y].ToString("F2") + " ");
+                    writer.Write(depthMap[x, y].ToString() + " ");
                 }
                 writer.WriteLine();
             }
@@ -168,13 +206,43 @@ public class TestPointCloudEdge : MonoBehaviour
 
     private void SaveDepthMapToCsv()
     {
+        using (StreamWriter writer = new StreamWriter(lowbitMapCsvPath))
+        {
+            for (int y = 0; y < depth_height; y++)
+            {
+                for (int x = 0; x < depth_width; x++)
+                {
+                    writer.Write(lowbitMap[x, y].ToString());
+                    if (x < depth_width - 1)
+                        writer.Write(","); // Add comma between values
+                }
+                writer.WriteLine(); // New line after each row
+            }
+        }
+        Debug.Log("Depth map saved to CSV file: " + lowbitMapCsvPath);
+
+        using (StreamWriter writer = new StreamWriter(highbitMapCsvPath))
+        {
+            for (int y = 0; y < depth_height; y++)
+            {
+                for (int x = 0; x < depth_width; x++)
+                {
+                    writer.Write(highbitMap[x, y].ToString());
+                    if (x < depth_width - 1)
+                        writer.Write(","); // Add comma between values
+                }
+                writer.WriteLine(); // New line after each row
+            }
+        }
+        Debug.Log("Depth map saved to CSV file: " + highbitMapCsvPath);
+
         using (StreamWriter writer = new StreamWriter(depthMapCsvPath))
         {
             for (int y = 0; y < depth_height; y++)
             {
                 for (int x = 0; x < depth_width; x++)
                 {
-                    writer.Write(depthMap[x, y].ToString("F2"));
+                    writer.Write(depthMap[x, y].ToString());
                     if (x < depth_width - 1)
                         writer.Write(","); // Add comma between values
                 }
@@ -191,7 +259,7 @@ public class TestPointCloudEdge : MonoBehaviour
         {
             for (int x = 0; x < depth_width; x++)
             {
-                float depthValue = depthMap[x, y];
+                float depthValue = highbitMap[x, y];
                 Color color = GetHeatmapColor(depthValue);
                 heatmapTexture.SetPixel(x, y, color);
             }
@@ -208,7 +276,7 @@ public class TestPointCloudEdge : MonoBehaviour
     {
         // This function maps a depth value to a color
         // Adjust the mapping logic as needed
-        return Color.Lerp(Color.blue, Color.red, value / 4096); // Assuming 16-bit depth values
+        return Color.Lerp(Color.blue, Color.red, value / 16); // Assuming 16-bit depth values
     }
 
 
